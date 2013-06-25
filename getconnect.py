@@ -9,18 +9,20 @@ import os
 import logging
 logging.getLogger("scapy.runtime").setLevel(logging.ERROR)
 import sqlite3 as lite
+import time
 
 
 from subprocess import call
 from sys import argv          # Command-line arguments
 from sys import stdout, stdin # Flushing
-from scapy.all import *
+#from scapy.all import *
 
 ###########################
 #     VARS AND INIT       #
 ###########################
 
 debug = 0
+version = 0.1
 
 
 DN = open(os.devnull, 'w')
@@ -34,10 +36,7 @@ try:
     con = lite.connect('accesspoints.db')
     
     cur = con.cursor()    
-
-    cur.execute('SELECT SQLITE_VERSION()')
-    data = cur.fetchone()
-    print "SQLite version: %s" % data                
+               
     
 except lite.Error, e:
     
@@ -62,7 +61,7 @@ def PacketHandler(pkt) :
 	if pkt.haslayer(Dot11) :
 		if pkt.type == 0 and pkt.subtype == 8 :
 			if pkt.addr2 not in ap_list :
-				ap_list.append(pkt.addr2)
+				ap_list.append(pkt)
 				if debug: print "AP MAC: %s with SSID: %s " %(pkt.addr2, pkt.info)
 
 
@@ -73,7 +72,7 @@ def ping(host):
     else:
 	return False
 
-def connectAP(ssid,key)
+def connectAP(ssid,key):
 	call(['uci set wireless.@wifi-iface[0].encryption=psk2'], stdout=DN, stderr=DN)
 	call(['uci set wireless.@wifi-iface[0].ssid='+ssid], stdout=DN, stderr=DN)
 	call(['uci set wireless.@wifi-iface[0].key='+key], stdout=DN, stderr=DN)
@@ -81,33 +80,44 @@ def connectAP(ssid,key)
 	call(['wifi'])
 
 
+def parseAP(aplist):
+    return aplist
+
+def printDB_AP():
+    with con:
+        con.row_factory = lite.Row
+
+        cur = con.cursor() 
+        cur.execute("SELECT * FROM accesspoints")
+        rows = cur.fetchall()
+
+        for row in rows:
+            print "%s MAC=%s KEY=%s" % (row["SSID"], row["MAC"], row["KEY"])
+
+def getSQLVersion():
+    cur.execute('SELECT SQLITE_VERSION()')
+    data = cur.fetchone()
+    return data 
+
 ###########################
 #      MAIN PROGRAM       #
 ###########################
 
-if os.getuid() != 0:
-        print 'Program must be run as root'
-        exit(1)
 
 
-print('AP found: %d' %len(ap_list))
-
-cur.execute("INSERT INTO accesspoints VALUES('','WLAN-29f34h','00:23:35:52:f4:23','xkn123uh5fc')")
-
-with con:
-    
-    con.row_factory = lite.Row
-      
-    cur = con.cursor() 
-    cur.execute("SELECT * FROM accesspoints")
-    rows = cur.fetchall()
-
-    for row in rows:
-        print "%s MAC=%s KEY=%s" % (row["SSID"], row["MAC"], row["KEY"])
-
+print "Script version: %s" % version
+print "SQLite version: %s" % getSQLVersion()
 
 #enable_monitor_mode('eth1')
 #sniff(iface="mon0", prn = PacketHandler)
+
+#wait for aps
+time.sleep(10)
+print('APs found: %d' %len(ap_list))
+
+#printDB_AP()
+
+
 
 
 #print ping("www.google.dssdefe")
