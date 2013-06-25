@@ -73,6 +73,13 @@ def ping(host):
     else:
 	return False
 
+def connectAP(ssid,key)
+	call(['uci set wireless.@wifi-iface[0].encryption=psk2'], stdout=DN, stderr=DN)
+	call(['uci set wireless.@wifi-iface[0].ssid='+ssid], stdout=DN, stderr=DN)
+	call(['uci set wireless.@wifi-iface[0].key='+key], stdout=DN, stderr=DN)
+	call(['uci commit wireless'])
+	call(['wifi'])
+
 
 ###########################
 #      MAIN PROGRAM       #
